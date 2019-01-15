@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  schedule:
+  - cron: 0 */12 * * *
+
+jobs:
+  build:
+
+    runs-on: macos-latest
+
+    steps:
+    - name: clone chromium
+      run: |
+        git clone --progress --verbose https://chromium.googlesource.com/chromium/src ./chromium
+    - name: filter chromedriver
+      run: |
+        cd chromium
+        git filter-branch --force --prune-empty --subdirectory-filter chrome/test/chromedriver master
+    - name: push
+      env:
+        GITHUB_TOKEN: ${{ secrets.PUSH_TOKEN }}
+      run: |
+        cd chromium
+        git config --global user.email "a.bayandin+T3-M4@gmail.com"
+        git config --global user.name "T3-M4"
+        git remote add chromedriver https://T3-M4:${GITHUB_TOKEN}@github.com/bayandin/chromedriver.git
+        git push chromedriver

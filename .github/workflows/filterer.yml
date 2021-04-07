@@ -9,23 +9,30 @@ on:
 
 jobs:
   build:
-
     runs-on: macos-latest
 
     steps:
+    - name: install git-filter-repo
+      run: |
+        curl https://raw.githubusercontent.com/newren/git-filter-repo/v2.32.0/git-filter-repo -o git-filter-repo
+        chmod +x git-filter-repo
+        echo "$(pwd)" >> $GITHUB_PATH
+
     - name: clone chromium
       run: |
         git clone --progress --verbose https://chromium.googlesource.com/chromium/src ./chromium
+
     - name: filter chromedriver
       run: |
         cd chromium
-        git filter-branch --force --prune-empty --subdirectory-filter chrome/test/chromedriver master
+        git filter-repo --force --subdirectory-filter chrome/test/chromedriver
+
     - name: push
       env:
-        GITHUB_TOKEN: ${{ secrets.PUSH_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       run: |
         cd chromium
         git config --global user.email "a.bayandin+T3-M4@gmail.com"
         git config --global user.name "T3-M4"
         git remote add chromedriver https://T3-M4:${GITHUB_TOKEN}@github.com/bayandin/chromedriver.git
-        git push chromedriver
+        git push --set-upstream chromedriver main

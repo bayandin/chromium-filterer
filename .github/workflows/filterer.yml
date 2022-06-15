@@ -20,7 +20,7 @@ jobs:
 
     - name: clone chromium
       run: |
-        git clone --progress --verbose https://chromium.googlesource.com/chromium/src ./chromium
+        git clone --progress --verbose https://github.com/chromium/chromium.git ./chromium
 
     - name: filter chromedriver
       run: |

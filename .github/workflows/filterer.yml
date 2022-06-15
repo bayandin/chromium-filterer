@@ -14,7 +14,7 @@ jobs:
     steps:
     - name: install git-filter-repo
       run: |
-        curl https://raw.githubusercontent.com/newren/git-filter-repo/v2.32.0/git-filter-repo -o git-filter-repo
+        curl https://raw.githubusercontent.com/newren/git-filter-repo/v2.34.0/git-filter-repo -o git-filter-repo
         chmod +x git-filter-repo
         echo "$(pwd)" >> $GITHUB_PATH
 

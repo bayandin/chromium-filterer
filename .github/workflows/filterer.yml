@@ -9,16 +9,12 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
 
     steps:
-    - uses: jlumbroso/free-disk-space@v1.3.1
-      with:
-        tool-cache: true
-
     - name: install git-filter-repo
       run: |
-        curl https://raw.githubusercontent.com/newren/git-filter-repo/v2.38.0/git-filter-repo -o git-filter-repo
+        curl https://raw.githubusercontent.com/newren/git-filter-repo/v2.45.0/git-filter-repo -o git-filter-repo
         chmod +x git-filter-repo
         echo "$(pwd)" >> $GITHUB_PATH
 
@@ -36,7 +32,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       run: |
         cd chromium
-        git config --global user.email "a.bayandin+T3-M4@gmail.com"
-        git config --global user.name "T3-M4"
+        git config --global user.email "8435085+T3-M4@users.noreply.github.com"
+        git config --global user.name  "T3-M4"
         git remote add chromedriver https://T3-M4:${GITHUB_TOKEN}@github.com/bayandin/chromedriver.git
         git push --set-upstream chromedriver main

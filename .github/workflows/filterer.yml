@@ -12,6 +12,27 @@ jobs:
     runs-on: macos-latest
 
     steps:
+    - name: Cleanup
+      run: |
+        # The step is copied from
+        # - https://github.com/nodejs/node/blob/3b34fd77f27d074d606c95cda861e91d52deac84/.github/workflows/test-macos.yml
+        # - https://github.com/AstarNetwork/Astar/blob/da7e689dd0dccd061d15cd5dbdf22aee5a86b2bb/.github/workflows/release-client.yml
+
+        echo "::group::Free space before cleanup"
+        df -h
+        echo "::endgroup::"
+        echo "::group::Cleaned Files"
+
+        xcrun simctl delete all || true
+        sudo rm -rf ~/Library/Developer/CoreSimulator/Caches/* || true
+        sudo rm -rf /Users/runner/Library/Android/sdk || true
+        sudo rm -rf /Applications/Xcode_* || true
+
+        echo "::endgroup::"
+        echo "::group::Free space after cleanup"
+        df -h
+        echo "::endgroup::"
+
     - name: install git-filter-repo
       run: |
         curl https://raw.githubusercontent.com/newren/git-filter-repo/v2.45.0/git-filter-repo -o git-filter-repo

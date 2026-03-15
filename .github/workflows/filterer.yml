@@ -4,57 +4,49 @@ on:
   push:
     branches:
       - master
+  pull_request:
   schedule:
     - cron: 0 */12 * * *
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: ubuntu-24.04
 
     steps:
-    - name: Cleanup
-      run: |
-        # The step is copied from
-        # - https://github.com/nodejs/node/blob/3b34fd77f27d074d606c95cda861e91d52deac84/.github/workflows/test-macos.yml
-        # - https://github.com/AstarNetwork/Astar/blob/da7e689dd0dccd061d15cd5dbdf22aee5a86b2bb/.github/workflows/release-client.yml
-
-        echo "::group::Free space before cleanup"
-        df -h
-        echo "::endgroup::"
-        echo "::group::Cleaned Files"
-
-        xcrun simctl delete all || true
-        sudo rm -rf ~/Library/Developer/CoreSimulator/Caches/* || true
-        sudo rm -rf /Users/runner/Library/Android/sdk || true
-        sudo rm -rf /Applications/Xcode_* || true
-
-        echo "::endgroup::"
-        echo "::group::Free space after cleanup"
-        df -h
-        echo "::endgroup::"
-
-    - name: install git-filter-repo
-      run: |
-        curl https://raw.githubusercontent.com/newren/git-filter-repo/v2.45.0/git-filter-repo -o git-filter-repo
-        chmod +x git-filter-repo
-        echo "$(pwd)" >> $GITHUB_PATH
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
     - name: clone chromium
-      run: |
-        git clone --progress --verbose https://github.com/chromium/chromium.git ./chromium
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      with:
+        repository: chromium/chromium
+        path: chromium
+        filter: blob:none
+        sparse-checkout: chrome/test/chromedriver
+        fetch-depth: 0
+        fetch-tags: false
 
-    - name: filter chromedriver
+    - name: backfill chromedriver blobs
+      working-directory: chromium
+      run: git backfill --sparse
+
+    - name: extract chromedriver history
       run: |
-        cd chromium
-        git filter-repo --force --subdirectory-filter chrome/test/chromedriver
+        git init -b main chromedriver
+        (cd chromium && python3 ../extract_chromedriver.py) | git -C chromedriver fast-import --done
 
     - name: push
       env:
         GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       run: |
-        cd chromium
+        cd chromedriver
         git config --global user.email "8435085+T3-M4@users.noreply.github.com"
         git config --global user.name  "T3-M4"
         git remote add chromedriver https://T3-M4:${GITHUB_TOKEN}@github.com/bayandin/chromedriver.git
-        git push --set-upstream chromedriver main
+
+        DRY_RUN=$([[ "${GITHUB_EVENT_NAME}" == "pull_request" ]] && echo "--dry-run" || echo "")
+        git push --set-upstream chromedriver main ${DRY_RUN}

@@ -17,12 +17,16 @@ jobs:
 
     - name: clone chromium
       run: |
-        git clone --filter=blob:none --single-branch --sparse --progress --verbose \
-          https://github.com/chromium/chromium
+        git clone https://github.com/chromium/chromium \
+          --filter=blob:none \
+          --single-branch \
+          --sparse \
+          --progress \
+          --verbose
 
     - name: backfill chromedriver blobs
-      working-directory: chromium
       run: |
+        cd chromium
         git sparse-checkout set chrome/test/chromedriver
         git backfill --sparse
 
@@ -34,8 +38,8 @@ jobs:
     - name: push
       env:
         GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-      working-directory: chromedriver
       run: |
+        cd chromedriver
         git config --global user.email "8435085+T3-M4@users.noreply.github.com"
         git config --global user.name  "T3-M4"
         git remote add chromedriver https://T3-M4:${GITHUB_TOKEN}@github.com/bayandin/chromedriver.git

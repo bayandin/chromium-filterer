@@ -13,6 +13,8 @@ jobs:
     runs-on: macos-latest
 
     steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
     - name: Cleanup
       run: |
         # The step is copied from
@@ -34,27 +36,28 @@ jobs:
         df -h
         echo "::endgroup::"
 
-    - name: install git-filter-repo
-      run: |
-        curl https://raw.githubusercontent.com/newren/git-filter-repo/v2.45.0/git-filter-repo -o git-filter-repo
-        chmod +x git-filter-repo
-        echo "$(pwd)" >> $GITHUB_PATH
-
     - name: clone chromium
       run: |
-        git clone --filter=blob:none --single-branch --progress --verbose https://github.com/chromium/chromium.git ./chromium
+        git clone --filter=blob:none --single-branch --sparse --progress --verbose \
+          https://github.com/chromium/chromium
 
-    - name: filter chromedriver
+    - name: backfill chromedriver blobs
+      working-directory: chromium
       run: |
-        cd chromium
-        git filter-repo --force --subdirectory-filter chrome/test/chromedriver
+        git sparse-checkout set chrome/test/chromedriver
+        git backfill --sparse
+
+    - name: extract chromedriver history
+      run: |
+        git init -b main chromedriver
+        (cd chromium && python3 ../extract_chromedriver.py) | git -C chromedriver fast-import --done
 
     - name: push
       env:
         GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+      working-directory: chromedriver
       run: |
-        cd chromium
         git config --global user.email "8435085+T3-M4@users.noreply.github.com"
         git config --global user.name  "T3-M4"
         git remote add chromedriver https://T3-M4:${GITHUB_TOKEN}@github.com/bayandin/chromedriver.git
-        git push --set-upstream chromedriver main
+        git push --force --set-upstream chromedriver main

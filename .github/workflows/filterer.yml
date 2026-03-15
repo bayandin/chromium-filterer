@@ -10,31 +10,10 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-    - name: Cleanup
-      run: |
-        # The step is copied from
-        # - https://github.com/nodejs/node/blob/3b34fd77f27d074d606c95cda861e91d52deac84/.github/workflows/test-macos.yml
-        # - https://github.com/AstarNetwork/Astar/blob/da7e689dd0dccd061d15cd5dbdf22aee5a86b2bb/.github/workflows/release-client.yml
-
-        echo "::group::Free space before cleanup"
-        df -h
-        echo "::endgroup::"
-        echo "::group::Cleaned Files"
-
-        xcrun simctl delete all || true
-        sudo rm -rf ~/Library/Developer/CoreSimulator/Caches/* || true
-        sudo rm -rf /Users/runner/Library/Android/sdk || true
-        sudo rm -rf /Applications/Xcode_* || true
-
-        echo "::endgroup::"
-        echo "::group::Free space after cleanup"
-        df -h
-        echo "::endgroup::"
 
     - name: clone chromium
       run: |

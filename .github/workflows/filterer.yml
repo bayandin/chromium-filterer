@@ -46,6 +46,13 @@ jobs:
         git init -b main chromedriver
         (cd chromium && python3 ../extract_chromedriver.py) | git -C chromedriver fast-import --done
 
+    - name: verify extracted tree
+      run: |
+        expected=$(git -C chromium rev-parse HEAD:chrome/test/chromedriver)
+        actual=$(git -C chromedriver rev-parse 'main^{tree}')
+        echo "expected ${expected}, got ${actual}"
+        [[ "${expected}" == "${actual}" ]]
+
     - name: push
       env:
         GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}

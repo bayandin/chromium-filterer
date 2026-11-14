@@ -21,6 +21,14 @@ def git(*args):
     return subprocess.run(["git"] + list(args), capture_output=True, check=True).stdout
 
 
+def quote_path(path):
+    """C-style quote a path for fast-import if it starts with '"' or contains LF."""
+    if path.startswith(b'"') or b"\n" in path:
+        path = path.replace(b"\\", b"\\\\").replace(b'"', b'\\"').replace(b"\n", b"\\n")
+        return b'"' + path + b'"'
+    return path
+
+
 # Get all commits touching SUBDIR, oldest first. --parents prints rewritten
 # parents (nearest ancestors also touching SUBDIR), not the original ones.
 commits_raw = git(
@@ -75,10 +83,10 @@ for i, (sha, parents) in enumerate(commits):
 
     # Get files in SUBDIR and ensure their blobs are written
     files = {}
-    for line in git("ls-tree", "-r", sha, "--", PREFIX).decode().strip().split("\n"):
-        if line:
-            meta, path = line.split("\t")
-            mode, _, bsha = meta.split()
+    for entry in git("ls-tree", "-r", "-z", sha, "--", PREFIX).split(b"\0"):
+        if entry:
+            meta, path = entry.split(b"\t", 1)
+            mode, _, bsha = meta.decode().split()
             files[path[len(PREFIX) :]] = (mode, write_blob(bsha))
 
     m = next_mark()
@@ -95,7 +103,7 @@ for i, (sha, parents) in enumerate(commits):
         out.write(f"{'merge' if n else 'from'} :{commit_marks[p]}\n".encode())
     out.write(b"deleteall\n")
     for path, (mode, bm) in files.items():
-        out.write(f"M {mode} :{bm} {path}\n".encode())
+        out.write(f"M {mode} :{bm} ".encode() + quote_path(path) + b"\n")
     out.write(b"\n")
 
 cat.stdin.close()

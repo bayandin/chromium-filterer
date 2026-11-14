@@ -13,9 +13,17 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref_name }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash  # explicit bash adds `-o pipefail`
+
 jobs:
   build:
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
 
     steps:
     - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -26,7 +34,10 @@ jobs:
         repository: chromium/chromium
         path: chromium
         filter: blob:none
-        sparse-checkout: chrome/test/chromedriver
+        # Non-cone mode: in cone mode `git backfill --sparse` also fetches the full
+        # history of top-level files (DEPS, AUTHORS, chrome/test/BUILD.gn, ...).
+        sparse-checkout: /chrome/test/chromedriver/**
+        sparse-checkout-cone-mode: false
         fetch-depth: 0
         fetch-tags: false
 
@@ -39,14 +50,15 @@ jobs:
         git init -b main chromedriver
         (cd chromium && python3 ../extract_chromedriver.py) | git -C chromedriver fast-import --done
 
+    - name: verify extracted tree
+      run: |
+        expected=$(git -C chromium rev-parse HEAD:chrome/test/chromedriver)
+        actual=$(git -C chromedriver rev-parse 'main^{tree}')
+        echo "expected ${expected}, got ${actual}"
+        [[ "${expected}" == "${actual}" ]]
+
     - name: push
       env:
         GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-      run: |
-        cd chromedriver
-        git config --global user.email "8435085+T3-M4@users.noreply.github.com"
-        git config --global user.name  "T3-M4"
-        git remote add chromedriver https://T3-M4:${GITHUB_TOKEN}@github.com/bayandin/chromedriver.git
-
-        DRY_RUN=$([[ "${GITHUB_EVENT_NAME}" == "pull_request" ]] && echo "--dry-run" || echo "")
-        git push --set-upstream chromedriver main ${DRY_RUN}
+        DRY_RUN: ${{ github.event_name == 'pull_request' && '--dry-run' || '' }}
+      run: git -C chromedriver push ${DRY_RUN} "https://T3-M4:${GITHUB_TOKEN}@github.com/bayandin/chromedriver.git" main

@@ -21,16 +21,12 @@ def git(*args):
     return subprocess.run(["git"] + list(args), capture_output=True, check=True).stdout
 
 
-# Get all commits touching SUBDIR, oldest first
+# Get all commits touching SUBDIR, oldest first. --parents prints rewritten
+# parents (nearest ancestors also touching SUBDIR), not the original ones.
 commits_raw = git(
-    "log", "--topo-order", "--reverse", "--format=%H %P", "--", SUBDIR
+    "rev-list", "--topo-order", "--reverse", "--parents", "HEAD", "--", SUBDIR
 ).decode()
-commits = [
-    (s[0], s[1:])
-    for line in commits_raw.strip().split("\n")
-    if line
-    for s in [line.split()]
-]
+commits = [(s[0], s[1:]) for s in map(str.split, commits_raw.splitlines())]
 print(f"Processing {len(commits)} commits...", file=sys.stderr)
 
 out = sys.stdout.buffer
@@ -87,17 +83,16 @@ for i, (sha, parents) in enumerate(commits):
 
     m = next_mark()
     commit_marks[sha] = m
-    pm = [commit_marks[p] for p in parents if p in commit_marks]
 
+    if not parents:
+        out.write(f"reset {OUTPUT_REF}\n".encode())  # start a new root explicitly
     out.write(f"commit {OUTPUT_REF}\nmark :{m}\n".encode())
     out.write(b"author " + author + b"\ncommitter " + committer + b"\n")
     out.write(
         f"data {len(msg)}\n".encode() + msg + (b"" if msg.endswith(b"\n") else b"\n")
     )
-    if pm:
-        out.write(f"from :{pm[0]}\n".encode())
-        for p in pm[1:]:
-            out.write(f"merge :{p}\n".encode())
+    for n, p in enumerate(parents):
+        out.write(f"{'merge' if n else 'from'} :{commit_marks[p]}\n".encode())
     out.write(b"deleteall\n")
     for path, (mode, bm) in files.items():
         out.write(f"M {mode} :{bm} {path}\n".encode())

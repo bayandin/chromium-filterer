@@ -52,11 +52,13 @@ def next_mark():
     return counter
 
 
-def read_object(sha):
+def read_object(sha, expected_type):
     cat.stdin.write(sha.encode() + b"\n")
     cat.stdin.flush()
-    size = int(cat.stdout.readline().split()[2])
-    data = cat.stdout.read(size)
+    header = cat.stdout.readline().split()
+    if len(header) != 3 or header[1] != expected_type:
+        sys.exit(f"cat-file {sha}: unexpected response {header!r}")
+    data = cat.stdout.read(int(header[2]))
     cat.stdout.read(1)  # trailing newline
     return data
 
@@ -66,7 +68,7 @@ def write_blob(sha):
         return blob_marks[sha]
     m = next_mark()
     blob_marks[sha] = m
-    data = read_object(sha)
+    data = read_object(sha, b"blob")
     out.write(f"blob\nmark :{m}\ndata {len(data)}\n".encode() + data + b"\n")
     return m
 
@@ -76,7 +78,7 @@ for i, (sha, parents) in enumerate(commits):
         print(f"  {i}/{len(commits)}", file=sys.stderr)
 
     # Parse commit object for author/committer/message
-    raw = read_object(sha)
+    raw = read_object(sha, b"commit")
     sep = raw.index(b"\n\n")
     msg = raw[sep + 2 :]
     author = committer = b""
@@ -91,8 +93,10 @@ for i, (sha, parents) in enumerate(commits):
     for entry in git("ls-tree", "-r", "-z", sha, "--", PREFIX).split(b"\0"):
         if entry:
             meta, path = entry.split(b"\t", 1)
-            mode, _, bsha = meta.decode().split()
-            files[path[len(PREFIX) :]] = (mode, write_blob(bsha))
+            mode, otype, osha = meta.decode().split()
+            # Submodules (gitlinks) are referenced by their commit sha directly
+            ref = f":{write_blob(osha)}" if otype == "blob" else osha
+            files[path[len(PREFIX) :]] = (mode, ref)
 
     m = next_mark()
     commit_marks[sha] = m
@@ -107,11 +111,12 @@ for i, (sha, parents) in enumerate(commits):
     for n, p in enumerate(parents):
         out.write(f"{'merge' if n else 'from'} :{commit_marks[p]}\n".encode())
     out.write(b"deleteall\n")
-    for path, (mode, bm) in files.items():
-        out.write(f"M {mode} :{bm} ".encode() + quote_path(path) + b"\n")
+    for path, (mode, ref) in files.items():
+        out.write(f"M {mode} {ref} ".encode() + quote_path(path) + b"\n")
     out.write(b"\n")
 
 cat.stdin.close()
-cat.wait()
+if cat.wait() != 0:
+    sys.exit("git cat-file failed")
 out.write(b"done\n")
 print(f"Done! {len(commits)} commits, {len(blob_marks)} unique blobs.", file=sys.stderr)

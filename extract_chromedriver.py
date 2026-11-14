@@ -40,7 +40,7 @@ print(f"Processing {len(commits)} commits...", file=sys.stderr)
 out = sys.stdout.buffer
 counter, blob_marks, commit_marks = 0, {}, {}
 
-# Persistent cat-file process for efficient blob reading
+# Persistent cat-file process for efficient object reading
 cat = subprocess.Popen(
     ["git", "cat-file", "--batch"], stdin=subprocess.PIPE, stdout=subprocess.PIPE
 )
@@ -52,17 +52,22 @@ def next_mark():
     return counter
 
 
-def write_blob(sha):
-    if sha in blob_marks:
-        return blob_marks[sha]
-    m = next_mark()
-    blob_marks[sha] = m
+def read_object(sha):
     cat.stdin.write(sha.encode() + b"\n")
     cat.stdin.flush()
     size = int(cat.stdout.readline().split()[2])
     data = cat.stdout.read(size)
     cat.stdout.read(1)  # trailing newline
-    out.write(f"blob\nmark :{m}\ndata {size}\n".encode() + data + b"\n")
+    return data
+
+
+def write_blob(sha):
+    if sha in blob_marks:
+        return blob_marks[sha]
+    m = next_mark()
+    blob_marks[sha] = m
+    data = read_object(sha)
+    out.write(f"blob\nmark :{m}\ndata {len(data)}\n".encode() + data + b"\n")
     return m
 
 
@@ -71,7 +76,7 @@ for i, (sha, parents) in enumerate(commits):
         print(f"  {i}/{len(commits)}", file=sys.stderr)
 
     # Parse commit object for author/committer/message
-    raw = git("cat-file", "commit", sha)
+    raw = read_object(sha)
     sep = raw.index(b"\n\n")
     msg = raw[sep + 2 :]
     author = committer = b""

@@ -60,11 +60,5 @@ jobs:
     - name: push
       env:
         GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-      run: |
-        cd chromedriver
-        git config --global user.email "8435085+T3-M4@users.noreply.github.com"
-        git config --global user.name  "T3-M4"
-        git remote add chromedriver https://T3-M4:${GITHUB_TOKEN}@github.com/bayandin/chromedriver.git
-
-        DRY_RUN=$([[ "${GITHUB_EVENT_NAME}" == "pull_request" ]] && echo "--dry-run" || echo "")
-        git push --set-upstream chromedriver main ${DRY_RUN}
+        DRY_RUN: ${{ github.event_name == 'pull_request' && '--dry-run' || '' }}
+      run: git -C chromedriver push ${DRY_RUN} "https://T3-M4:${GITHUB_TOKEN}@github.com/bayandin/chromedriver.git" main

@@ -26,7 +26,10 @@ jobs:
         repository: chromium/chromium
         path: chromium
         filter: blob:none
-        sparse-checkout: chrome/test/chromedriver
+        # Non-cone mode: in cone mode `git backfill --sparse` also fetches the full
+        # history of top-level files (DEPS, AUTHORS, chrome/test/BUILD.gn, ...).
+        sparse-checkout: /chrome/test/chromedriver/**
+        sparse-checkout-cone-mode: false
         fetch-depth: 0
         fetch-tags: false
 
